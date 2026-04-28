@@ -14,12 +14,32 @@ class NuScenesSegDataset(Dataset):
         self.mask_dir = mask_dir
         self.processor = processor
 
-        tokens = sorted([f.replace('.jpg', '')
-                         for f in os.listdir(img_dir)
-                         if f.endswith('.jpg')])
-        split_idx = int(len(tokens) * TRAIN_SPLIT)
-        self.tokens = tokens[:split_idx] if split == 'train' \
-                      else tokens[split_idx:]
+        from nuscenes.nuscenes import NuScenes
+        from config import DATA_ROOT, NUSCENES_VERSION
+
+        nusc = NuScenes(version=NUSCENES_VERSION,
+                        dataroot=DATA_ROOT, verbose=False)
+
+        # Scene-level split：前8个scene训练，后2个scene验证
+        n_scenes  = len(nusc.scene)
+        split_idx = int(n_scenes * TRAIN_SPLIT)
+        train_scenes = set(s['token'] for s in nusc.scene[:split_idx])
+        val_scenes   = set(s['token'] for s in nusc.scene[split_idx:])
+
+        def get_scene_token(sample_token):
+            sample = nusc.get('sample', sample_token)
+            return nusc.get('scene', sample['scene_token'])['token']
+
+        all_tokens = sorted([f.replace('.jpg', '')
+                            for f in os.listdir(img_dir)
+                            if f.endswith('.jpg')])
+
+        if split == 'train':
+            self.tokens = [t for t in all_tokens
+                        if get_scene_token(t) in train_scenes]
+        else:
+            self.tokens = [t for t in all_tokens
+                        if get_scene_token(t) in val_scenes]
         print(f"[NuScenesSegDataset] {split}: {len(self.tokens)} samples")
 
     def __len__(self):
