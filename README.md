@@ -30,7 +30,7 @@
 
 ## Pipeline Overview
 
-**nuScenes Mini** → **2D Semantic Segmentation** (SegFormer-B2, mIoU: 0.4157) → **BEV Transformation** (IPM baseline + LSS Lift-Splat-Shoot) → **3D Occupancy Grid** (LiDAR voxelization + 5-frame aggregation) → **ONNX Deployment** (2.1MB, 20.3 FPS on T4 GPU)
+**nuScenes Mini** → **2D Semantic Segmentation** (SegFormer-B2, mIoU: 0.4157) → **BEV Transformation** (IPM baseline + LSS Lift-Splat-Shoot) → **3D Occupancy Grid** (LiDAR voxelization + 5-frame aggregation) → **ONNX Deployment** (~106MB, verified numerical parity, ~49ms on T4 GPU)
 
 ---
 
@@ -41,7 +41,7 @@
 | SegFormer 2D Segmentation | Val mIoU | 0.4157 |
 | ONNX Export Accuracy | Max error vs PyTorch | < 1e-5 |
 | GPU Inference Speed | FPS (T4) | 20.3 |
-| ONNX Model Size | File size | 2.1 MB |
+| ONNX Model Size | File size | ~106 MB |
 | Occupancy Temporal Fusion | Frames aggregated | 5 + ego-motion compensation |
 
 ---
@@ -103,7 +103,7 @@
 
 ### Stage 4: ONNX Deployment
 
-- Exported SegFormer to ONNX (opset 18), model size **2.1 MB**
+- Exported SegFormer to ONNX (opset 18), total size **~106 MB** (2.1MB index + 104.4MB weights)
 - Output verified: max difference between PyTorch and ONNX < **1e-5**
 - Benchmarked on T4 GPU over 100 runs with 10 warmup iterations
 - PyTorch: **49ms / 20.3 FPS** | ONNX Runtime (CUDA EP): **52ms / 19.3 FPS**
