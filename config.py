@@ -2,13 +2,29 @@
 import os
 
 # 路径配置 
-DRIVE_ROOT    = '/content/drive/MyDrive/adas_occ_project'
-DATA_ROOT     = '/content/nuscenes'
-SEG_DATA_DIR  = '/content/seg_data'
+import os
+
+# 自动检测运行环境
+def _get_project_root():
+    if 'ADAS_PROJECT_ROOT' in os.environ:
+        return os.environ['ADAS_PROJECT_ROOT']
+    colab_path = '/content/drive/MyDrive/adas_occ_project'
+    if os.path.exists(colab_path):
+        return colab_path
+    return os.path.dirname(os.path.abspath(__file__))
+
+PROJECT_ROOT = _get_project_root()
+
+# 路径配置
+DRIVE_ROOT    = PROJECT_ROOT
+DATA_ROOT     = '/content/nuscenes' if os.path.exists('/content/nuscenes') \
+                else os.path.join(PROJECT_ROOT, 'data/nuscenes')
+SEG_DATA_DIR  = '/content/seg_data' if os.path.exists('/content/seg_data') \
+                else os.path.join(PROJECT_ROOT, 'data/seg_data')
 IMG_DIR       = f'{SEG_DATA_DIR}/images'
 MASK_DIR      = f'{SEG_DATA_DIR}/masks'
-CKPT_DIR      = f'{DRIVE_ROOT}/checkpoints'
-OUTPUT_DIR    = f'{DRIVE_ROOT}/outputs'
+CKPT_DIR      = f'{PROJECT_ROOT}/checkpoints'
+OUTPUT_DIR    = f'{PROJECT_ROOT}/outputs'
 
 # 数据配置 
 NUSCENES_VERSION = 'v1.0-mini'
