@@ -101,6 +101,7 @@
 - ContextNet extracts 64-channel semantic features
 - Scatter-based voxel accumulation for gradient-stable training
 - Includes camera-to-ego extrinsic transformation (4x4 rotation + translation matrix), producing ego-frame BEV features
+- LiDAR sparse depth supervision: LiDAR points projected onto image plane as sparse depth labels to supervise DepthNet training, replacing blind depth estimation
 - Limited by mini dataset size; full nuScenes + pretrained backbone required for convergence
 
 ### Stage 3: 3D Semantic Occupancy
