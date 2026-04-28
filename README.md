@@ -26,6 +26,12 @@
 ### IPM BEV Projection
 ![ipm](assets/ipm_baseline.png)
 
+### 6-Camera BEV Fusion (ego-frame, surround view)
+![fusion](assets/multicam_fusion_0.png)
+
+### Per-Camera BEV Feature Maps
+![percam](assets/multicam_fusion_0_percam_bev.png)
+
 ### 3D Semantic Occupancy Grid (5-frame aggregation + ego-motion compensation)
 ![occ](assets/semantic_occ_3d_0.png)
 
