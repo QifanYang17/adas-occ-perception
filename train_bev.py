@@ -73,6 +73,11 @@ class NuScenesBEVDataset(Dataset):
         intrinsic = np.array(cs['camera_intrinsic'], dtype=np.float32)
         intrinsic[0] *= self.image_size[1] / W0
         intrinsic[1] *= self.image_size[0] / H0
+        
+        # 外参：camera-to-ego 变换矩阵 (4x4)
+        extrinsic = np.eye(4, dtype=np.float32)
+        extrinsic[:3, :3] = Quaternion(cs['rotation']).rotation_matrix
+        extrinsic[:3,  3] = np.array(cs['translation'])
 
         # 生成 BEV mask（用 IPM 投影）
         from bev.ipm import ipm_semantic
@@ -80,9 +85,10 @@ class NuScenesBEVDataset(Dataset):
             self.nusc, sample, cs, ego, H0, W0, intrinsic)
 
         return {
-            'image':     img_tensor,
-            'intrinsic': torch.from_numpy(intrinsic),
-            'bev_mask':  torch.from_numpy(bev_mask).long(),
+            'image':      img_tensor,
+            'intrinsic':  torch.from_numpy(intrinsic),
+            'extrinsic':  torch.from_numpy(extrinsic),
+            'bev_mask':   torch.from_numpy(bev_mask).long(),
         }
 
     def _make_bev_mask(self, nusc, sample, cs, ego, H, W, intrinsic):
@@ -172,11 +178,12 @@ def train():
         model.train()
         epoch_loss = 0
         for batch in train_loader:
-            images     = batch['image'].to(device)
-            intrinsics = batch['intrinsic'].to(device)
-            bev_masks  = batch['bev_mask'].to(device)
+            images      = batch['image'].to(device)
+            intrinsics  = batch['intrinsic'].to(device)
+            extrinsics  = batch['extrinsic'].to(device)
+            bev_masks   = batch['bev_mask'].to(device)
 
-            logits = model(images, intrinsics)
+            logits = model(images, intrinsics, extrinsics)
             # 计算类别权重，压制 background
             weights = torch.tensor([0.1, 2.0, 3.0, 3.0, 2.0],
                                     device=device)
@@ -195,10 +202,11 @@ def train():
             all_mious = []
             with torch.no_grad():
                 for batch in val_loader:
-                    images     = batch['image'].to(device)
-                    intrinsics = batch['intrinsic'].to(device)
-                    bev_masks  = batch['bev_mask'].to(device)
-                    logits     = model(images, intrinsics)
+                    images      = batch['image'].to(device)
+                    intrinsics  = batch['intrinsic'].to(device)
+                    extrinsics  = batch['extrinsic'].to(device)
+                    bev_masks   = batch['bev_mask'].to(device)
+                    logits      = model(images, intrinsics, extrinsics)
                     preds      = logits.argmax(dim=1)
                     for p, l in zip(preds, bev_masks):
                         all_mious.append(compute_miou(p, l))

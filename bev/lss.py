@@ -168,16 +168,24 @@ class LSSTransform(nn.Module):
             )
         return bev_feat
 
-    def forward(self, features, intrinsic):
+    def forward(self, features, intrinsic, extrinsic=None):
         """
-        features:  (B, 256, H, W)  backbone 输出特征
-        intrinsic: (B, 3, 3)       相机内参
+        features:   (B, 256, H, W)  backbone 输出特征
+        intrinsic:  (B, 3, 3)       相机内参
+        extrinsic:  (B, 4, 4)       camera-to-ego 外参（可选）
         返回:
             bev_feat: (B, C, bev_size, bev_size)
         """
-        depth_probs = self.depth_net(features)    # (B, D, H, W)
-        context     = self.context_net(features)  # (B, C, H, W)
+        depth_probs = self.depth_net(features)
+        context     = self.context_net(features)
         points, weighted_feats = self.lift(context, depth_probs, intrinsic)
+
+        # 如果提供外参，把点从 camera frame 变换到 ego frame
+        if extrinsic is not None:
+            ones = torch.ones(*points.shape[:2], 1, device=points.device)
+            points_h = torch.cat([points, ones], dim=-1)  # (B, N, 4)
+            points = torch.bmm(points_h, extrinsic.transpose(1, 2))[:, :, :3]
+
         bev_feat = self.splat(points, weighted_feats)
         return bev_feat
 
@@ -220,14 +228,15 @@ class LSSSegmentor(nn.Module):
             nn.Conv2d(64, num_classes, 1),
         )
 
-    def forward(self, images, intrinsics):
+    def forward(self, images, intrinsics, extrinsics=None):
         """
-        images:     (B, 3, H, W)
-        intrinsics: (B, 3, 3)
+        images:      (B, 3, H, W)
+        intrinsics:  (B, 3, 3)
+        extrinsics:  (B, 4, 4) camera-to-ego 变换矩阵（可选）
         返回:
             bev_logits: (B, num_classes, bev_size, bev_size)
         """
-        features  = self.encoder(images)          # (B, 256, H/16, W/16)
-        bev_feat  = self.lss(features, intrinsics) # (B, 64, bev_size, bev_size)
-        bev_logits = self.bev_decoder(bev_feat)    # (B, C, bev_size, bev_size)
+        features   = self.encoder(images)
+        bev_feat   = self.lss(features, intrinsics, extrinsics)
+        bev_logits = self.bev_decoder(bev_feat)
         return bev_logits
