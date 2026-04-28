@@ -84,11 +84,24 @@ class NuScenesBEVDataset(Dataset):
         bev_mask = self._make_bev_mask(
             self.nusc, sample, cs, ego, H0, W0, intrinsic)
 
+        # 生成 sparse depth label
+        from utils.depth_utils import lidar_to_sparse_depth, depth_to_bin_label
+        depth_map = lidar_to_sparse_depth(
+            self.nusc, sample['token'], CAM_CHANNEL,
+            image_size=(H0, W0))
+        depth_label = depth_to_bin_label(depth_map)
+        # resize 到模型特征图尺寸 (H/16, W/16)
+        feat_h = self.image_size[0] // 16
+        feat_w = self.image_size[1] // 16
+        from utils.depth_utils import resize_depth
+        depth_label = resize_depth(depth_label, (feat_h, feat_w))
+
         return {
-            'image':      img_tensor,
-            'intrinsic':  torch.from_numpy(intrinsic),
-            'extrinsic':  torch.from_numpy(extrinsic),
-            'bev_mask':   torch.from_numpy(bev_mask).long(),
+            'image':       img_tensor,
+            'intrinsic':   torch.from_numpy(intrinsic),
+            'extrinsic':   torch.from_numpy(extrinsic),
+            'bev_mask':    torch.from_numpy(bev_mask).long(),
+            'depth_label': torch.from_numpy(depth_label).long(),
         }
 
     def _make_bev_mask(self, nusc, sample, cs, ego, H, W, intrinsic):
@@ -183,11 +196,27 @@ def train():
             extrinsics  = batch['extrinsic'].to(device)
             bev_masks   = batch['bev_mask'].to(device)
 
-            logits = model(images, intrinsics, extrinsics)
-            # 计算类别权重，压制 background
+            logits, depth_probs = model(images, intrinsics,
+                                        extrinsics, return_depth=True)
+            # BEV 分割 loss
             weights = torch.tensor([0.1, 2.0, 3.0, 3.0, 2.0],
                                     device=device)
-            loss = F.cross_entropy(logits, bev_masks, weight=weights)
+            bev_loss = F.cross_entropy(logits, bev_masks, weight=weights)
+
+            # Sparse depth supervision loss
+            depth_labels = batch['depth_label'].to(device)
+            valid = depth_labels > 0
+            if valid.sum() > 0:
+                depth_log = depth_probs.log().permute(0, 2, 3, 1)
+                depth_tgt = (depth_labels - 1).clamp(0)
+                depth_loss = F.nll_loss(
+                    depth_log[valid].unsqueeze(0).permute(0, 2, 1),
+                    depth_tgt[valid].unsqueeze(0),
+                    reduction='mean'
+                )
+                loss = bev_loss + 0.1 * depth_loss
+            else:
+                loss = bev_loss
 
             optimizer.zero_grad()
             loss.backward()

@@ -228,15 +228,21 @@ class LSSSegmentor(nn.Module):
             nn.Conv2d(64, num_classes, 1),
         )
 
-    def forward(self, images, intrinsics, extrinsics=None):
-        """
-        images:      (B, 3, H, W)
-        intrinsics:  (B, 3, 3)
-        extrinsics:  (B, 4, 4) camera-to-ego 变换矩阵（可选）
-        返回:
-            bev_logits: (B, num_classes, bev_size, bev_size)
-        """
-        features   = self.encoder(images)
-        bev_feat   = self.lss(features, intrinsics, extrinsics)
+    def forward(self, images, intrinsics, extrinsics=None,
+                return_depth=False):
+        features    = self.encoder(images)
+        depth_probs = self.lss.depth_net(features)
+        context     = self.lss.context_net(features)
+        points, weighted_feats = self.lss.lift(
+            context, depth_probs, intrinsic=intrinsics)
+        if extrinsics is not None:
+            ones     = torch.ones(*points.shape[:2], 1,
+                                  device=points.device)
+            points_h = torch.cat([points, ones], dim=-1)
+            points   = torch.bmm(
+                points_h, extrinsics.transpose(1, 2))[:, :, :3]
+        bev_feat   = self.lss.splat(points, weighted_feats)
         bev_logits = self.bev_decoder(bev_feat)
+        if return_depth:
+            return bev_logits, depth_probs
         return bev_logits
