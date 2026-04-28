@@ -29,10 +29,22 @@ class NuScenesBEVDataset(Dataset):
     def __init__(self, nusc, split='train', image_size=(224, 400)):
         self.nusc       = nusc
         self.image_size = image_size
-        samples = nusc.sample
-        split_idx = int(len(samples) * 0.8)
-        self.samples = samples[:split_idx] if split == 'train' \
-                       else samples[split_idx:]
+        # Scene-level split，和 nuscenes_seg.py 保持一致
+        n_scenes  = len(nusc.scene)
+        split_idx = int(n_scenes * 0.8)
+        train_scenes = set(s['token'] for s in nusc.scene[:split_idx])
+        val_scenes   = set(s['token'] for s in nusc.scene[split_idx:])
+
+        def get_scene_token(sample):
+            return nusc.get('scene', sample['scene_token'])['token']
+
+        all_samples = nusc.sample
+        if split == 'train':
+            self.samples = [s for s in all_samples
+                            if get_scene_token(s) in train_scenes]
+        else:
+            self.samples = [s for s in all_samples
+                            if get_scene_token(s) in val_scenes]
         print(f"[BEVDataset] {split}: {len(self.samples)} samples")
 
     def __len__(self):
