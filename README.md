@@ -100,6 +100,7 @@
 - DepthNet predicts per-pixel depth probability across 64 bins (1m to 45m)
 - ContextNet extracts 64-channel semantic features
 - Scatter-based voxel accumulation for gradient-stable training
+- Includes camera-to-ego extrinsic transformation (4x4 rotation + translation matrix), producing ego-frame BEV features
 - Limited by mini dataset size; full nuScenes + pretrained backbone required for convergence
 
 ### Stage 3: 3D Semantic Occupancy
