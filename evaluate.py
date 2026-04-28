@@ -109,10 +109,12 @@ def evaluate(ckpt_path, num_samples=None):
             class_ious.append(0.0)
             print(f"  {ID2LABEL[cls]:15s}: N/A (not present)")
 
-    miou = np.mean([v for v in class_ious if v > 0])
-    print(f"\n  Mean IoU: {miou:.4f}")
+    miou_present = np.mean([v for v in class_ious if v > 0])
+    miou_all     = np.mean(class_ious)
+    print(f"\n  mIoU (present classes only): {miou_present:.4f}")
+    print(f"  mIoU (all eval classes):     {miou_all:.4f}")
 
-    return conf_matrix, class_ious, miou
+    return conf_matrix, class_ious, miou_present, miou_all
 
 
 def plot_confusion_matrix(conf_matrix, save_path=None):
@@ -197,13 +199,13 @@ if __name__ == '__main__':
     ckpt_path = f'{CKPT_DIR}/segformer_best.pth'
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    conf_matrix, class_ious, miou = evaluate(ckpt_path)
+    conf_matrix, class_ious, miou_present, miou_all = evaluate(ckpt_path)
 
     plot_confusion_matrix(
         conf_matrix,
         save_path=f'{OUTPUT_DIR}/confusion_matrix.png'
     )
     plot_per_class_iou(
-        class_ious, miou,
+        class_ious, miou_present,
         save_path=f'{OUTPUT_DIR}/per_class_iou.png'
     )

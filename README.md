@@ -112,7 +112,7 @@
 
 ### Stage 4: ONNX Deployment
 
-- Exported SegFormer to ONNX (opset 18), total size **~106 MB** (2.1MB index + 104.4MB weights)
+- Exported SegFormer to ONNX (opset 12), total size **~106 MB** (2.1MB index + 104.4MB weights)
 - Output verified: max difference between PyTorch and ONNX < **1e-5**
 - Benchmarked on T4 GPU over 100 runs with 10 warmup iterations
 - PyTorch: **49ms / 20.3 FPS** | ONNX Runtime (CUDA EP): **52ms / 19.3 FPS**
