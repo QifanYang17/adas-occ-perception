@@ -180,10 +180,10 @@ def visualize_multicam_fusion(nusc, sample_token,
         fig3, ax = plt.subplots(1, 1, figsize=(8, 8))
         im = ax.imshow(fused_vis, cmap='hot', origin='lower',
                        extent=[-BEV_RANGE/2, BEV_RANGE/2,
-                               -BEV_RANGE/2, BEV_RANGE/2])
+                                0, BEV_RANGE])
         plt.colorbar(im, ax=ax, label='Feature Activation')
-        ax.set_xlabel('X (m)')
-        ax.set_ylabel('Y (m)')
+        ax.set_xlabel('Y / Lateral (m)  left | right')
+        ax.set_ylabel('X / Forward (m)')
         ax.set_title('6-Camera Fused BEV Feature Map\n'
                      '(ego-frame, surround view)', fontsize=12)
         ax.plot(0, 0, 'b^', markersize=12, label='Ego vehicle')

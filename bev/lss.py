@@ -137,9 +137,10 @@ class LSSTransform(nn.Module):
         device  = feats.device
         S = self.bev_size
 
-        # 把 3D 点坐标映射到 BEV 像素坐标
-        px = ((points[:, :, 0] + self.bev_range / 2) / self.bev_range * S)
-        pz = ((1 - points[:, :, 2] / self.bev_range) * S)
+        # nuScenes ego frame: x=forward, y=left, z=up
+        # BEV 图约定：图像上方=前方(x)，图像右方=右方(-y)
+        px = ((points[:, :, 1] * -1 + self.bev_range / 2) / self.bev_range * S)  # y轴（左右）
+        pz = ((1 - points[:, :, 0] / self.bev_range) * S)                         # x轴（前后）
 
         # 归一化到 [-1, 1] 用于 grid_sample
         grid_x = (px / S) * 2 - 1  # (B, N)
