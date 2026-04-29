@@ -160,7 +160,9 @@ def visualize_3d_voxel(nusc, sample_token, save_path=None, max_points=20000):
 def run_occupancy_visualization(nusc, num_samples=3):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    for i, sample in enumerate(nusc.sample[:num_samples]):
+    selected_samples = [nusc.get('sample', scene['first_sample_token'])
+                        for scene in nusc.scene[:num_samples]]
+    for i, sample in enumerate(selected_samples):
         token = sample['token']
         print(f"\nSample {i+1}/{num_samples}: {token[:8]}...")
 

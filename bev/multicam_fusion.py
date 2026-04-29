@@ -221,9 +221,10 @@ if __name__ == '__main__':
         print("使用随机初始化权重（仅验证 pipeline）")
     model.eval()
 
-    # 取前3个 sample 做可视化
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    for i, sample in enumerate(nusc.sample[:3]):
+    selected_samples = [nusc.get('sample', scene['first_sample_token'])
+                        for scene in nusc.scene[:3]]
+    for i, sample in enumerate(selected_samples):
         visualize_multicam_fusion(
             nusc, sample['token'], model, device,
             save_path=f'{OUTPUT_DIR}/multicam_fusion_{i}.png'

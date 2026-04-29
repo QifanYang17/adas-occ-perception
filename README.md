@@ -17,32 +17,36 @@
 ### SegFormer 2D Semantic Segmentation
 ![seg](assets/inference_results.png)
 
-### Per-Class IoU
+### Per-Class IoU & Confusion Matrix
 ![iou](assets/per_class_iou.png)
-
-### Confusion Matrix
 ![cm](assets/confusion_matrix.png)
 
-### IPM BEV Projection
+### IPM BEV Projection (Baseline)
 ![ipm](assets/ipm_baseline.png)
 
-### 6-Camera BEV Fusion (ego-frame, surround view)
+### 6-Camera Fused BEV Feature Map (ego-frame, surround view)
 ![fusion](assets/multicam_fusion_0.png)
 
 ### Per-Camera BEV Feature Maps
 ![percam](assets/multicam_fusion_0_percam_bev.png)
 
-### 3D Semantic Occupancy Grid (5-frame aggregation + ego-motion compensation)
+### LiDAR Sparse Depth Supervision
+![depth](assets/sparse_depth_0.png)
+
+### 3D Semantic Occupancy Target Generation (5-frame aggregation)
 ![occ](assets/semantic_occ_3d_0.png)
 
-### Inference Benchmark (T4 GPU)
+### LiDAR Point Cloud BEV
+![lidar](assets/lidar_bev_0.png)
+
+### ONNX Runtime Parity Benchmark (T4 GPU)
 ![bench](assets/benchmark_results.png)
 
 ---
 
 ## Pipeline Overview
 
-**nuScenes Mini** → **2D Semantic Segmentation** (SegFormer-B2, mIoU: 0.5694) → **BEV Transformation** (IPM baseline + LSS Lift-Splat-Shoot) → **3D Occupancy Grid** (LiDAR voxelization + 5-frame aggregation) → **ONNX Deployment** (~106MB, verified numerical parity, ~49ms on T4 GPU)
+**nuScenes Mini** → **2D Semantic Segmentation** (SegFormer-B2, mIoU: 0.5694) → **BEV Transformation** (IPM baseline + LSS Lift-Splat-Shoot) → **3D Occupancy Target Generation** (LiDAR voxelization + 5-frame aggregation) → **ONNX Deployment** (~106MB, verified numerical parity, ~49ms on T4 GPU)
 
 ---
 
@@ -52,7 +56,7 @@
 |--------|--------|-------|
 | SegFormer 2D Segmentation | Val mIoU (scene-level split) | 0.5694 |
 | SegFormer per-class IoU | background / vehicle / pedestrian | 0.879 / 0.631 / 0.767 |
-| SegFormer per-class IoU | cyclist / obstacle | 0.000 / N/A (not in val scenes) |
+| SegFormer per-class IoU | cyclist / obstacle | ~0.000 (segmentation failed, class imbalance) / N/A (absent in val scenes) |
 | ONNX Export Accuracy | Max error vs PyTorch | < 1e-5 |
 | GPU Inference Speed | FPS (T4) | 20.3 |
 | ONNX Model Size | Total file size | ~106 MB |
@@ -62,23 +66,43 @@
 
 ## Project Structure
 
-- `config.py` — Global config: paths, hyperparameters, classes
-- `setup_colab.py` — One-click Colab environment initialization
-- `train_seg.py` — SegFormer training with checkpoint resume
-- `infer_seg.py` — Inference and visualization
-- `evaluate.py` — Per-class IoU and confusion matrix evaluation
-- `train_bev.py` — LSS BEV training
-- `visualize_bev.py` — IPM vs LSS comparison visualization
-- `datasets/nuscenes_seg.py` — Dataset class with scene-level split
-- `models/segformer.py` — Model definition and weight loading
-- `utils/visualize.py` — Visualization utilities
-- `utils/mask_generator.py` — 3D box to 2D pseudo label projection
-- `bev/ipm.py` — Inverse Perspective Mapping
-- `bev/lss.py` — Lift-Splat-Shoot full implementation
-- `occupancy/voxel.py` — Voxel grid + multi-frame aggregation
-- `occupancy/visualize_occ.py` — LiDAR BEV / semantic BEV / 3D scatter
-- `deploy/export_onnx.py` — ONNX export and verification
-- `deploy/benchmark.py` — Inference latency benchmark
+```
+adas_occ_project/
+│
+├── config.py                        # Global config: paths, hyperparameters, classes
+├── setup_colab.py                   # One-click Colab environment initialization
+├── evaluate.py                      # Per-class IoU and confusion matrix evaluation
+│
+├── datasets/
+│   └── nuscenes_seg.py              # Dataset class with scene-level split
+│
+├── models/
+│   └── segformer.py                 # SegFormer model definition and weight loading
+│
+├── utils/
+│   ├── visualize.py                 # Segmentation visualization utilities
+│   ├── mask_generator.py            # 3D box → 2D pseudo label projection
+│   ├── depth_utils.py               # LiDAR sparse depth projection and bin labels
+│   └── visualize_depth.py           # Sparse depth supervision visualization
+│
+├── bev/
+│   ├── ipm.py                       # Inverse Perspective Mapping (baseline)
+│   ├── lss.py                       # Lift-Splat-Shoot full implementation
+│   └── multicam_fusion.py           # 6-camera surround BEV feature fusion demo
+│
+├── occupancy/
+│   ├── voxel.py                     # Voxel grid + 5-frame ego-motion aggregation
+│   └── visualize_occ.py             # LiDAR BEV / semantic BEV / 3D scatter viz
+│
+├── deploy/
+│   ├── export_onnx.py               # ONNX export and numerical parity verification
+│   └── benchmark.py                 # Inference latency benchmark
+│
+├── train_seg.py                     # SegFormer training with checkpoint resume
+├── infer_seg.py                     # Inference and visualization
+├── train_bev.py                     # LSS BEV training with scene-level split
+└── visualize_bev.py                 # IPM vs LSS BEV comparison visualization
+```
 
 ---
 
@@ -110,7 +134,9 @@
 - LiDAR sparse depth supervision: LiDAR points projected onto image plane as sparse depth labels to supervise DepthNet training, replacing blind depth estimation
 - Limited by mini dataset size; full nuScenes + pretrained backbone required for convergence
 
-### Stage 3: 3D Semantic Occupancy
+### Stage 3: 3D Semantic Occupancy Target Generation & Visualization
+
+- **Note**: This module generates and visualizes occupancy targets from LiDAR point clouds and 3D box annotations. It is not a camera-to-occupancy prediction network; the occupancy labels serve as ground truth for future model training.
 
 - **Voxel grid**: ±25m × ±25m × [-2m, 4m], resolution 0.5m → (100, 100, 12) grid
 - **Multi-frame aggregation**: 5 LiDAR sweeps with ego-motion compensation

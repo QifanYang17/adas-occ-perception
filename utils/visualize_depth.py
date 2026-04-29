@@ -145,15 +145,19 @@ if __name__ == '__main__':
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # 单相机详细可视化
-    for i, sample in enumerate(nusc.sample[:3]):
+    # 从不同 scene 各取第一个 sample
+    selected_samples = []
+    for scene in nusc.scene[:3]:
+        first_sample_token = scene['first_sample_token']
+        selected_samples.append(nusc.get('sample', first_sample_token))
+
+    for i, sample in enumerate(selected_samples):
         visualize_sparse_depth(
             nusc, sample['token'],
             save_path=f'{OUTPUT_DIR}/sparse_depth_{i}.png')
 
-    # 6路相机可视化
     visualize_multicam_depth(
-        nusc, nusc.sample[0]['token'],
+        nusc, selected_samples[0]['token'],
         save_path=f'{OUTPUT_DIR}/sparse_depth_6cam.png')
 
     print("Sparse depth 可视化完成！")
